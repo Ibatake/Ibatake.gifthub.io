@@ -7,11 +7,14 @@
     <style>
         body { margin: 0; padding: 0; display: flex; flex-direction: column; align-items: center; background-color: #001e43; color: #fff; font-family: sans-serif; }
         .camera-container { position: relative; width: 100%; max-width: 400px; aspect-ratio: 9/16; overflow: hidden; background: #222; }
-        video { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); /* インカメラ用に反転 */ }
+        /* 修正：外向きカメラ用に左右反転(scaleX)を削除しました */
+        video { width: 100%; height: 100%; object-fit: cover; }
         .frame { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; object-fit: contain; }
         .btn { margin-top: 15px; padding: 12px 24px; background-color: #ff3366; color: white; border: none; border-radius: 25px; font-size: 16px; font-weight: bold; cursor: pointer; text-decoration: none; display: inline-block; }
+        /* 追加：「戻る」ボタン用のスタイル */
+        .btn-secondary { background-color: #666; margin-top: 10px; }
         #canvas { display: none; }
-        .popup { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); flex-direction: column; justify-content: center; align-items: center; z-index: 100; text-align: center; padding: 20px; box-sizing: border-box; }
+        .popup { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); flex-direction: column; justify-content: center; align-items: center; z-index: 100; text-align: center; padding: 20px; box-sizing: border-box; overflow-y: auto; }
         .popup p { font-size: 18px; margin-bottom: 20px; line-height: 1.5; }
     </style>
 </head>
@@ -19,7 +22,7 @@
 
     <div class="camera-container">
         <video id="video" autoplay playsinline></video>
-        <img class="frame" src="https://via.placeholder.com/1080x1920/000000/000000.png?text=Frame_Area" id="frameImg" alt="Frame">
+        <img class="frame" src="frame.png" id="frameImg" alt="Frame">
     </div>
 
     <button class="btn" id="captureBtn">写真を撮影する</button>
@@ -28,11 +31,14 @@
 
     <div id="popup" class="popup">
         <p>🎉 撮影が完了しました！<br>公式Instagramをフォローして<br>写真を保存しよう！</p>
-        <a href="https://www.instagram.com/shonandai_tanabata?igsh=MXhhcmphbDZtcjZtMA%3D%3D&utm_source=qr"_blank" class="btn" id="followBtn">Instagramをフォローする</a>
+        <a href="https://www.instagram.com/shonandai_tanabata?igsh=MXhhcmphbDZtcjZtMA%3D%3D&utm_source=qr" target="_blank" class="btn" id="followBtn">Instagramをフォローする</a>
+        
         <div id="downloadArea" style="display:none; margin-top: 20px;">
             <p>👇 フォローありがとうございます！<br>下の画像を表示・長押しして保存してください</p>
             <img id="resultImage" style="width: 100%; max-width: 300px; border: 2px solid #fff;">
         </div>
+
+        <button class="btn btn-secondary" id="backBtn">もう一度撮影する（戻る）</button>
     </div>
 
     <script>
@@ -44,46 +50,50 @@
         const followBtn = document.getElementById('followBtn');
         const downloadArea = document.getElementById('downloadArea');
         const resultImage = document.getElementById('resultImage');
+        const backBtn = document.getElementById('backBtn'); // 追加
 
-        // 【設定】作成したフレーム画像のURLに書き換えてください
-        frameImg.src="frame1.png";
+        frameImg.crossOrigin = "anonymous";
+        frameImg.src = "frame1.png"; 
 
-        // カメラの起動
-        navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: false })
+        // 修正：facingModeを "environment"（外向きカメラ）に変更しました
+        navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false })
             .then(stream => { video.srcObject = stream; })
             .catch(err => { alert("カメラの起動に失敗しました。ブラウザの設定でカメラを許可してください。"); });
 
-        // シャッターボタンを押したときの処理
+        // シャッターボタンの処理
         captureBtn.addEventListener('click', () => {
             const ctx = canvas.getContext('2d');
-            // キャンバスサイズを動画の比率（9:16など）に合わせる
             canvas.width = 1080;
             canvas.height = 1920;
 
-            // 1. カメラ映像を描画（左右反転を戻して保存）
-            ctx.translate(canvas.width, 0);
-            ctx.scale(-1, 1);
-            // ビデオの切り抜きと描画（カバーフィットの計算）
+            // 修正：外向きカメラ用に、左右反転させる処理（translateやscale）を削除しました
             ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-            ctx.setTransform(1, 0, 0, 1, 0, 0); // 変形をリセット
 
-            // 2. フレーム画像（透過PNG）を上に重ねて描画
-            ctx.drawImage(frameImg, 0, 0, canvas.width, canvas.height);
-
-            // 3. データURLに変換して結果用imgタグにセット
-            resultImage.src = canvas.toDataURL('image/jpeg');
-
-            // 4. Instagram誘導ポップアップを表示
-            popup.style.display = 'flex';
+            // フレーム画像を重ねて描画
+            try {
+                ctx.drawImage(frameImg, 0, 0, canvas.width, canvas.height);
+                resultImage.src = canvas.toDataURL('image/jpeg');
+                popup.style.display = 'flex';
+            } catch (e) {
+                alert("画像の読み込みに失敗しました。");
+                console.error(e);
+            }
         });
 
-        // 「Instagramをフォローする」ボタンを押したときの処理
+        // Instagramボタンの処理
         followBtn.addEventListener('click', () => {
-            // ユーザーが別タブでInstagramを開いたと仮定し、2秒後にダウンロードエリアを表示
             setTimeout(() => {
                 followBtn.style.display = 'none';
                 downloadArea.style.display = 'block';
             }, 2000);
+        });
+
+        // 追加：「戻る」ボタンを押したときの処理
+        backBtn.addEventListener('click', () => {
+            popup.style.display = 'none';         // ポップアップを隠す
+            downloadArea.style.display = 'none';   // 保存エリアを初期化
+            followBtn.style.display = 'inline-block'; // フォローボタンを再表示
+            resultImage.src = "";                  // 前回撮影した画像をクリア
         });
     </script>
 </body>
