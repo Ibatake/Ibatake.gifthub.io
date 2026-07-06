@@ -10,6 +10,7 @@
         video { width: 100%; height: 100%; object-fit: cover; }
         .frame { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; object-fit: contain; }
         .btn { margin-top: 15px; padding: 12px 24px; background-color: #ff3366; color: white; border: none; border-radius: 25px; font-size: 16px; font-weight: bold; cursor: pointer; text-decoration: none; display: inline-block; }
+        /* 修正：「フォローしない」「戻る」ボタン用のスタイル（グレー） */
         .btn-secondary { background-color: #666; margin-top: 10px; }
         #canvas { display: none; }
         .popup { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); flex-direction: column; justify-content: center; align-items: center; z-index: 100; text-align: center; padding: 20px; box-sizing: border-box; overflow-y: auto; }
@@ -28,11 +29,14 @@
     <canvas id="canvas"></canvas>
 
     <div id="popup" class="popup">
-        <p>🎉 撮影が完了しました！<br>公式Instagramをフォローして<br>写真を保存しよう！</p>
+        <p id="popupText">🎉 撮影が完了しました！<br>公式Instagramをフォローして<br>写真を保存しよう！</p>
+        
         <a href="https://www.instagram.com/shonandai_tanabata?igsh=MXhhcmphbDZtcjZtMA%3D%3D&utm_source=qr" target="_blank" class="btn" id="followBtn">Instagramをフォローする</a>
         
+        <button class="btn btn-secondary" id="skipBtn">Instagramをフォローしない</button>
+        
         <div id="downloadArea" style="display:none; margin-top: 20px;">
-            <p>👇 フォローありがとうございます！<br>下の画像を表示・長押しして保存してください</p>
+            <p>👇 下の画像を表示・長押しして保存してください</p>
             <img id="resultImage" style="width: 100%; max-width: 300px; border: 2px solid #fff;">
         </div>
 
@@ -45,7 +49,9 @@
         const captureBtn = document.getElementById('captureBtn');
         const frameImg = document.getElementById('frameImg');
         const popup = document.getElementById('popup');
+        const popupText = document.getElementById('popupText'); // 追加
         const followBtn = document.getElementById('followBtn');
+        const skipBtn = document.getElementById('skipBtn'); // 追加
         const downloadArea = document.getElementById('downloadArea');
         const resultImage = document.getElementById('resultImage');
         const backBtn = document.getElementById('backBtn');
@@ -53,7 +59,6 @@
         frameImg.crossOrigin = "anonymous";
         frameImg.src = "frame.png"; 
 
-        // 💡 改善：カメラに「高解像度（1920x1080以上）」を要求する設定に変更
         const constraints = {
             video: {
                 facingMode: "environment",
@@ -70,17 +75,12 @@
         // シャッターボタンの処理
         captureBtn.addEventListener('click', () => {
             const ctx = canvas.getContext('2d');
-            
-            // 💡 改善：実際のビデオの「生の解像度」に合わせてキャンバスの大きさを決定する
             const videoWidth = video.videoWidth;
             const videoHeight = video.videoHeight;
             
-            // 縦向き撮影用に縦横を調整
             canvas.width = videoHeight;
             canvas.height = videoWidth;
 
-            // カメラの生映像をそのままキャンバスに描画（引き伸ばしによる劣化を防ぐ）
-            // 9:16の比率で切り抜いて描画
             const targetWidth = canvas.width;
             const targetHeight = canvas.height;
             const sourceWidth = videoWidth;
@@ -92,7 +92,6 @@
             // フレーム画像を重ねて描画
             try {
                 ctx.drawImage(frameImg, 0, 0, canvas.width, canvas.height);
-                // 💡 改善：保存時の画質（クオリティ）を最高（1.0）に指定
                 resultImage.src = canvas.toDataURL('image/jpeg', 1.0);
                 popup.style.display = 'flex';
             } catch (e) {
@@ -101,19 +100,31 @@
             }
         });
 
-        // Instagramボタンの処理
+        // Instagramボタンの処理（フォローする側）
         followBtn.addEventListener('click', () => {
             setTimeout(() => {
+                popupText.style.display = 'none'; // メッセージをすっきりさせる
                 followBtn.style.display = 'none';
+                skipBtn.style.display = 'none';   // スキップボタンも消す
                 downloadArea.style.display = 'block';
             }, 2000);
+        });
+
+        // 追加：「Instagramをフォローしない」ボタンの処理
+        skipBtn.addEventListener('click', () => {
+            popupText.style.display = 'none';    // メッセージを非表示
+            followBtn.style.display = 'none';    // フォローボタンを非表示
+            skipBtn.style.display = 'none';      // 自分（スキップボタン）を非表示
+            downloadArea.style.display = 'block'; // すぐに保存エリアを表示
         });
 
         // 「戻る」ボタンの処理
         backBtn.addEventListener('click', () => {
             popup.style.display = 'none';
             downloadArea.style.display = 'none';
-            followBtn.style.display = 'inline-block';
+            popupText.style.display = 'block';     // 初期状態に戻す
+            followBtn.style.display = 'inline-block'; // 初期状態に戻す
+            skipBtn.style.display = 'inline-block';   // 初期状態に戻す
             resultImage.src = "";
         });
     </script>
